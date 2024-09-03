@@ -432,8 +432,10 @@ version = "0.1.0"
 dependencies = [
  "fltk",
  "fltk-sys",
+ "lazy_static",
  "rodio",
  "soloud",
+ "thiserror",
 ]
 
 [[package]]

@@ -1,84 +1,90 @@
-use soloud::*;
 use std::sync::{Arc, Mutex};
+use soloud::{Soloud, Wav, Handle};
+use soloud::prelude::*; 
+use std::io::Read;
 use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum AudioError {
+    #[error("Load error: {0}")]
+    LoadError(String),
+    #[error("Seek error: {0}")]
+    SeekError(String),
+}
 
 lazy_static::lazy_static! {
     static ref SOLOUND: Arc<Mutex<Soloud>> = {
-        let sl = Soloud::default().unwrap();
-        sl.set_global_volume(50.0);
+        let mut sl = Soloud::default().unwrap();
+        sl.set_global_volume(50.0); // Set the default volume
         Arc::new(Mutex::new(sl))
     };
 }
 
-#[derive(Error, Debug)]
-pub enum AudioError {
-    #[error("Failed to load audio file: {0}")]
-    LoadError(String),
-    #[error("Playback error: {0}")]
-    PlaybackError(String),
-    #[error("Seek error: {0}")]
-    SeekError(String),
-    #[error("Volume error: {0}")]
-    VolumeError(String),
+static CURRENT_HANDLE: Mutex<Option<Handle>> = Mutex::new(None);
+
+pub fn load_audio(file_path: &str) -> Result<Wav, AudioError> {
+    let mut wav = Wav::default();
+    let mut file = std::fs::File::open(file_path)
+        .map_err(|_| AudioError::LoadError("Unable to open file".into()))?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)
+        .map_err(|_| AudioError::LoadError("Unable to read file".into()))?;
+    wav.load_mem(&buffer)
+        .map_err(|_| AudioError::LoadError("Unable to load file into Wav".into()))?;
+    Ok(wav)
 }
 
 pub fn play_audio(file_path: &str) -> Result<(), AudioError> {
-    let mut wav = Wav::default();
-    wav.load(file_path).map_err(|_| AudioError::LoadError(file_path.to_string()))?;
-
-    let sl = SOLOUND.lock().unwrap();
-    sl.play(&wav);
+    let wav = load_audio(file_path)?;
+    let mut sl = SOLOUND.lock().unwrap();
+    let handle = sl.play(&wav);
+    *CURRENT_HANDLE.lock().unwrap() = Some(handle);
     Ok(())
 }
 
-pub fn pause_audio() -> Result<(), AudioError> {
-    let sl = SOLOUND.lock().unwrap();
-    sl.pause_all();
-    Ok(())
+pub fn pause_audio() {
+    let mut sl = SOLOUND.lock().unwrap();
+    if let Some(handle) = *CURRENT_HANDLE.lock().unwrap() {
+        sl.pause(handle);
+    }
 }
 
-pub fn stop_audio() -> Result<(), AudioError> {
-    let sl = SOLOUND.lock().unwrap();
-    sl.stop_all();
-    Ok(())
+pub fn stop_audio() {
+    let mut sl = SOLOUND.lock().unwrap();
+    if let Some(handle) = *CURRENT_HANDLE.lock().unwrap() {
+        sl.stop(handle);
+        *CURRENT_HANDLE.lock().unwrap() = None;
+    }
 }
 
-pub fn forward_audio(seconds: f32) -> Result<(), AudioError> {
-    let sl = SOLOUND.lock().unwrap();
-
-    let current_position = sl.stream_time().unwrap_or(0.0);
-    let new_position = (current_position + seconds).clamp(0.0, sl.stream_time_max().unwrap_or(0.0));
-    sl.seek(new_position).map_err(|_| AudioError::SeekError("Failed to seek forward".to_string()))?;
-    Ok(())
+pub fn forward_audio(seconds: f32) {
+    let mut sl = SOLOUND.lock().unwrap();
+    if let Some(handle) = *CURRENT_HANDLE.lock().unwrap() {
+        let position = sl.stream_position(handle);
+        sl.seek(handle, position + seconds as f64);
+    }
 }
 
-pub fn rewind_audio(seconds: f32) -> Result<(), AudioError> {
-    let sl = SOLOUND.lock().unwrap();
-
-    let current_position = sl.stream_time().unwrap_or(0.0);
-    let new_position = (current_position - seconds).clamp(0.0, sl.stream_time_max().unwrap_or(0.0));
-    sl.seek(new_position).map_err(|_| AudioError::SeekError("Failed to seek backward".to_string()))?;
-    Ok(())
+pub fn rewind_audio(seconds: f32) {
+    let mut sl = SOLOUND.lock().unwrap();
+    if let Some(handle) = *CURRENT_HANDLE.lock().unwrap() {
+        let position = sl.stream_position(handle);
+        sl.seek(handle, position - seconds as f64);
+    }
 }
 
-pub fn set_volume(volume: f32) -> Result<(), AudioError> {
-    let sl = SOLOUND.lock().unwrap();
-    sl.set_global_volume(volume);
-    Ok(())
-}
 
-pub fn increase_volume(amount: f32) -> Result<(), AudioError> {
-    let sl = SOLOUND.lock().unwrap();
-    let new_volume = (sl.global_volume() + amount).clamp(0.0, 100.0);
-    sl.set_global_volume(new_volume);
-    Ok(())
-}
 
-pub fn decrease_volume(amount: f32) -> Result<(), AudioError> {
-    let sl = SOLOUND.lock().unwrap();
-    let new_volume = (sl.global_volume() - amount).clamp(0.0, 100.0);
-    sl.set_global_volume(new_volume);
-    Ok(())
-}
+
+
+
+
+
+
+
+
+
+
+
 
 

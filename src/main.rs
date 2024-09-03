@@ -1,81 +1,80 @@
-use fltk::{
-    app,
-    button::Button,
-    frame::Frame,
-    group::Pack,
-    prelude::*,
-    slider::Slider,
-    window::Window,
-};
+use fltk::{app, button::Button, prelude::*, window::Window};
 use soloud::Soloud;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 use lazy_static::lazy_static;
+use thiserror::Error;
 
 mod audio;
-use audio::*;
-
+use audio::{play_audio, pause_audio, stop_audio, forward_audio, rewind_audio}; // Import only used functions
 
 lazy_static! {
     static ref SOLOUND: Arc<Mutex<Soloud>> = {
         let mut sl = Soloud::default().unwrap();
-        sl.set_global_volume(50.0);
+        sl.set_global_volume(50.0); // Set the default volume
         Arc::new(Mutex::new(sl))
     };
 }
 
+#[derive(Error, Debug)]
+pub enum AppError {
+    #[error("Audio error: {0}")]
+    AudioError(#[from] audio::AudioError),
+}
+
 fn main() {
     let app = app::App::default();
-    let mut wind = Window::new(100, 100, 800, 600, "Music Player");
+    let mut wind = Window::new(100, 100, 400, 300, "Music Player");
 
-    let mut pack = Pack::new(10, 10, 780, 580, "");
-    pack.set_spacing(10);
+    // Create buttons
+    let mut play_button = Button::new(160, 210, 80, 40, "Play");
+    let mut pause_button = Button::new(240, 210, 80, 40, "Pause");
+    let mut stop_button = Button::new(320, 210, 80, 40, "Stop");
+    let mut forward_button = Button::new(160, 260, 80, 40, "Forward");
+    let mut rewind_button = Button::new(240, 260, 80, 40, "Rewind");
 
-    let mut play_button = Button::new(0, 0, 100, 40, "Play");
-    let mut pause_button = Button::new(110, 0, 100, 40, "Pause");
-    let mut stop_button = Button::new(220, 0, 100, 40, "Stop");
-    let mut forward_button = Button::new(330, 0, 100, 40, "Forward");
-    let mut rewind_button = Button::new(440, 0, 100, 40, "Rewind");
+    // Set up button callbacks
+    play_button.set_callback({
+        move |_| {
+            println!("Play button pressed");
+            // Call your play function here
+        }
+    });
 
-    let mut volume_slider = Slider::new(0, 50, 300, 40, "Volume");
-    volume_slider.set_range(0.0, 10.0);
-    volume_slider.set_value(4.0);
-    
-    let mut status = Frame::new(0, 100, 780, 40, "Status");
+    pause_button.set_callback({
+        move |_| {
+            println!("Pause button pressed");
+            // Call your pause function here
+        }
+    });
 
-    pack.end();
+    stop_button.set_callback({
+        move |_| {
+            println!("Stop button pressed");
+            // Call your stop function here
+        }
+    });
+
+    forward_button.set_callback({
+        move |_| {
+            println!("Forward button pressed");
+            // Call your forward function here
+        }
+    });
+
+    rewind_button.set_callback({
+        move |_| {
+            println!("Rewind button pressed");
+            // Call your rewind function here
+        }
+    });
+
     wind.end();
     wind.show();
 
-    play_button.set_callback(move |_| {
-        play_audio("C:\\Users\\USER\\Music"); 
-        status.set_label("Playing");
-    });
-
-    pause_button.set_callback(move |_| {
-        pause_audio();
-        status.set_label("Paused");
-    });
-
-    stop_button.set_callback(move |_| {
-        stop_audio();
-        status.set_label("Stopped");
-    });
-
-    forward_button.set_callback(move |_| {
-        forward_audio(10.0); 
-        status.set_label("Forwarding");
-    });
-
-    rewind_button.set_callback(move |_| {
-        rewind_audio(5.0); 
-        status.set_label("Rewinding");
-    });
-
-    volume_slider.set_callback(move |s| {
-        set_volume(s.value());
-    });
-
     app.run().unwrap();
 }
+
+
 
 

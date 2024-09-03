@@ -9,6 +9,7 @@ soloud = "1.0.5"
 fltk-sys = { version = "1.4"}
 fltk = "1.4" 
 lazy_static = "1.4"
+thiserror = "1.0"
 
 
 
